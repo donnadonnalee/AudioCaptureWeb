@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Capture Pro - JS System Audio Recorder</title>
+    <meta name="description" content="JavaScriptを使ってシステムの音（ステレオミキサー的な録音）をキャプチャするデモアプリです。">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Audio Capture</h1>
+            <p>ブラウザからシステム音を高品質に録音</p>
+        </header>
+
+        <main>
+            <div class="visualizer-container">
+                <canvas id="visualizer"></canvas>
+                <div class="status-indicator" id="statusIndicator">
+                    <span class="dot"></span>
+                    <span class="text">Ready</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="format-selector">
+                    <span>保存形式:</span>
+                    <label>
+                        <input type="radio" name="format" value="webm" checked> WebM
+                    </label>
+                    <label>
+                        <input type="radio" name="format" value="wav"> WAV (非圧縮)
+                    </label>
+                </div>
+                <button id="startBtn" class="btn primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1v22m11-11H1M5.07 8.43L12 1.5l6.93 6.93m-13.86 7.14L12 22.5l6.93-6.93" />
+                    </svg>
+                    画面共有（音声あり）を開始
+                </button>
+                <div class="recording-controls hidden" id="recordingControls">
+                    <button id="recordBtn" class="btn danger">
+                        <span class="record-icon"></span>
+                        録音開始
+                    </button>
+                    <button id="stopBtn" class="btn secondary" disabled>
+                        停止
+                    </button>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <p><strong>使い方:</strong>
+                    「画面共有を開始」をクリックし、<strong>「システムオーディオを共有」</strong>（またはタブの音声）にチェックを入れて共有してください。Windowsのステレオミキサーのように、流れている音を直接キャプチャできます。
+                </p>
+            </div>
+
+            <div class="recordings-list" id="recordingsList">
+                <!-- Recorded items will go here -->
+            </div>
+        </main>
+
+        <footer>
+            <p>Open Source / <a href="LICENSE" style="color: inherit; text-decoration: underline;">MIT License</a></p>
+            <p style="margin-top: 0.25rem;">Built with Vanilla JS & CSS</p>
+        </footer>
+    </div>
+    <script src="main.js"></script>
+</body>
+
+</html>
