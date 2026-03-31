@@ -27,6 +27,8 @@ class AudioRecorder {
   }
 
   init() {
+    if (!this.checkDeviceSupport()) return;
+
     this.startBtn.addEventListener('click', () => this.startCapture());
     this.recordBtn.addEventListener('click', () => this.toggleRecording());
     this.stopBtn.addEventListener('click', () => this.stopRecording());
@@ -34,6 +36,30 @@ class AudioRecorder {
     // Set canvas resolution
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
+  }
+
+  checkDeviceSupport() {
+    // 1. User Agent によるモバイル検知
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // 2. 必要な API (getDisplayMedia) の有無を確認
+    const hasDisplayMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+    
+    if (isMobile || !hasDisplayMedia) {
+      console.warn('This device/browser is not supported for system audio capture.');
+      const warning = document.getElementById('mobileWarning');
+      warning.classList.remove('hidden');
+      
+      // ボタンを無効化し、メッセージを更新（API未サポートの場合用）
+      if (!hasDisplayMedia && !isMobile) {
+        warning.querySelector('h2').textContent = 'ブラウザが未対応です';
+        warning.querySelector('p').textContent = 'お使いのブラウザは画面共有（音声キャプチャ）に対応していません。最新の Chrome, Edge, Firefox 等をご利用ください。';
+      }
+      
+      this.startBtn.disabled = true;
+      return false;
+    }
+    return true;
   }
 
   resizeCanvas() {
@@ -258,10 +284,10 @@ class AudioRecorder {
     this.statusIndicator.querySelector('.text').textContent = 'Capturing...';
 
     const url = URL.createObjectURL(blob);
-    this.addRecordingToList(url, blob.size, extension);
+    this.addRecordingToList(url, blob.size, extension, blob);
   }
 
-  addRecordingToList(url, size, extension) {
+  async addRecordingToList(url, size, extension, blob) {
     const item = document.createElement('div');
     item.className = 'recording-item';
     
@@ -270,17 +296,83 @@ class AudioRecorder {
     const sizeStr = (size / 1024 / 1024).toFixed(2) + ' MB';
 
     item.innerHTML = `
-      <div class="info">
-        <span class="name">録音データ (${extension.toUpperCase()}) ${timeStr}</span>
-        <span class="date">${sizeStr}</span>
+      <div class="recording-info-row">
+        <div class="info">
+          <span class="name">録音データ (${extension.toUpperCase()}) ${timeStr}</span>
+          <span class="date">${sizeStr}</span>
+        </div>
+        <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+          保存
+        </a>
       </div>
-      <audio controls src="${url}"></audio>
-      <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
-        保存
-      </a>
+      <div class="waveform-wrapper">
+        <canvas class="waveform-canvas"></canvas>
+      </div>
+      <div class="recording-controls-row">
+        <audio controls src="${url}"></audio>
+      </div>
     `;
 
     this.recordingsList.prepend(item);
+
+    // 波形描画
+    const canvas = item.querySelector('.waveform-canvas');
+    this.renderWaveform(blob, canvas);
+  }
+
+  async renderWaveform(blob, canvas) {
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      // 新しい AudioContext を作るか既存のを使う
+      // audioCtx が閉じている可能性があるので必要に応じて作成
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      this.drawWaveform(canvas, audioBuffer);
+      ctx.close();
+    } catch (e) {
+      console.error('Waveform visualization failed:', e);
+    }
+  }
+
+  drawWaveform(canvas, audioBuffer) {
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Resize canvas based on container
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    
+    const data = audioBuffer.getChannelData(0);
+    const step = Math.ceil(data.length / canvas.width);
+    const amp = canvas.height / 2;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Gradient for waveform
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#00ffff'); // Primary
+    gradient.addColorStop(0.5, '#6c5ce7'); // Secondary
+    gradient.addColorStop(1, '#00ffff');
+    
+    ctx.fillStyle = gradient;
+    
+    for (let i = 0; i < canvas.width; i++) {
+        let min = 1.0;
+        let max = -1.0;
+        for (let j = 0; j < step; j++) {
+            const datum = data[(i * step) + j];
+            if (datum < min) min = datum;
+            if (datum > max) max = datum;
+        }
+        
+        const y = (1 + min) * amp;
+        const height = Math.max(1, (max - min) * amp);
+        
+        // Slightly rounded bars look better
+        ctx.fillRect(i, y, 1, height);
+    }
   }
 
   handleStreamEnd() {

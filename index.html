@@ -13,6 +13,17 @@
 </head>
 
 <body>
+    <div id="mobileWarning" class="mobile-warning hidden">
+        <div class="warning-content">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                <line x1="12" y1="18" x2="12" y2="18"></line>
+            </svg>
+            <h2>PC限定の機能です</h2>
+            <p>システムオーディオのキャプチャ機能は、現在モバイル端末ではご利用いただけません。PCのブラウザからお試しください。</p>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>Audio Capture</h1>
@@ -42,7 +53,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 1v22m11-11H1M5.07 8.43L12 1.5l6.93 6.93m-13.86 7.14L12 22.5l6.93-6.93" />
                     </svg>
-                    画面共有（音声あり）を開始
+                    録音するアプリやブラウザタブを選択
                 </button>
                 <div class="recording-controls hidden" id="recordingControls">
                     <button id="recordBtn" class="btn danger">
