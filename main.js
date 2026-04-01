@@ -31,7 +31,7 @@ class AudioRecorder {
 
     // State for Auto-splitting
     this.autoSplit = false;
-    this.silenceDurationThreshold = 2.0;
+    this.silenceDurationThreshold = 1.0;
     this.silenceStartTime = null;
     this.currentTrackHasSound = false;
     this.isAutoSplitInProgress = false;
