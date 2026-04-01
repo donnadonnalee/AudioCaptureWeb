@@ -446,7 +446,7 @@ class AudioRecorder {
           <span class="date">${sizeStr}</span>
         </div>
         <div class="action-buttons" style="display: flex; gap: 0.5rem;">
-          <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+          <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary save-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
             保存
           </a>
           <button class="btn danger discard-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: rgba(255, 71, 87, 0.1); color: var(--accent); border: 1px solid rgba(255, 71, 87, 0.3);">
@@ -461,6 +461,12 @@ class AudioRecorder {
         <audio controls src="${url}"></audio>
       </div>
     `;
+
+    const saveBtn = item.querySelector('.save-btn');
+    saveBtn.addEventListener('click', () => {
+        saveBtn.classList.add('saved');
+        saveBtn.textContent = '保存済み';
+    });
 
     const discardBtn = item.querySelector('.discard-btn');
     discardBtn.addEventListener('click', () => {

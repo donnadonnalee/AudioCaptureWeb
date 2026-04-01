@@ -304,6 +304,15 @@ main {
   gap: 0.5rem;
 }
 
+.save-btn.saved {
+  opacity: 0.6;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-dim) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  pointer-events: none;
+  cursor: default;
+}
+
 .discard-btn:hover {
   background: rgba(255, 71, 87, 0.2) !important;
   color: white !important;
