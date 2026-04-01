@@ -40,15 +40,39 @@
             </div>
 
             <div class="controls">
-                <div class="format-selector">
-                    <span>保存形式:</span>
-                    <label>
-                        <input type="radio" name="format" value="webm" checked> WebM
-                    </label>
-                    <label>
-                        <input type="radio" name="format" value="wav"> WAV (非圧縮)
-                    </label>
+                <div class="format-settings">
+                    <div class="format-selector">
+                        <span>保存形式:</span>
+                        <label>
+                            <input type="radio" name="format" value="webm" checked> WebM
+                        </label>
+                        <label>
+                            <input type="radio" name="format" value="mp3"> MP3
+                        </label>
+                        <label>
+                            <input type="radio" name="format" value="wav"> WAV (非圧縮)
+                        </label>
+                    </div>
+                    <div id="bitrateSelector" class="bitrate-selector hidden">
+                        <label for="mp3Bitrate">ビットレート:</label>
+                        <select id="mp3Bitrate">
+                            <option value="128">128 kbps</option>
+                            <option value="192" selected>192 kbps</option>
+                            <option value="320">320 kbps</option>
+                        </select>
+                    </div>
                 </div>
+
+                <div class="split-controls">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="autoSplit"> 無音自動分割
+                    </label>
+                    <div id="silenceDurationContainer" class="slider-container hidden">
+                        <span>無音判定秒数: <span id="silenceValue">2.0</span>秒</span>
+                        <input type="range" id="silenceDuration" min="0.5" max="5.0" step="0.1" value="2.0">
+                    </div>
+                </div>
+
                 <button id="startBtn" class="btn primary">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 1v22m11-11H1M5.07 8.43L12 1.5l6.93 6.93m-13.86 7.14L12 22.5l6.93-6.93" />
@@ -82,6 +106,7 @@
             <p style="margin-top: 0.25rem;">Built with Vanilla JS & CSS</p>
         </footer>
     </div>
+    <script src="lame.min.js"></script>
     <script src="main.js"></script>
 </body>
 

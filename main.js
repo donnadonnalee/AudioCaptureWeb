@@ -20,8 +20,22 @@ class AudioRecorder {
     this.statusIndicator = document.getElementById('statusIndicator');
     this.recordingsList = document.getElementById('recordingsList');
     this.formatOptions = document.getElementsByName('format');
+    this.bitrateSelector = document.getElementById('bitrateSelector');
+    this.mp3Bitrate = document.getElementById('mp3Bitrate');
+    this.autoSplitCheckbox = document.getElementById('autoSplit');
+    this.silenceDurationContainer = document.getElementById('silenceDurationContainer');
+    this.silenceDurationInput = document.getElementById('silenceDuration');
+    this.silenceValueLabel = document.getElementById('silenceValue');
     this.canvas = document.getElementById('visualizer');
     this.canvasCtx = this.canvas.getContext('2d');
+
+    // State for Auto-splitting
+    this.autoSplit = false;
+    this.silenceDurationThreshold = 2.0;
+    this.silenceStartTime = null;
+    this.currentTrackHasSound = false;
+    this.isAutoSplitInProgress = false;
+    this.silenceVolumeThreshold = 0.015; // Noise floor threshold
 
     this.init();
   }
@@ -32,6 +46,32 @@ class AudioRecorder {
     this.startBtn.addEventListener('click', () => this.startCapture());
     this.recordBtn.addEventListener('click', () => this.toggleRecording());
     this.stopBtn.addEventListener('click', () => this.stopRecording());
+
+    // Format selection change
+    this.formatOptions.forEach(opt => {
+        opt.addEventListener('change', (e) => {
+            if (e.target.value === 'mp3') {
+                this.bitrateSelector.classList.remove('hidden');
+            } else {
+                this.bitrateSelector.classList.add('hidden');
+            }
+        });
+    });
+
+    // Auto split settings
+    this.autoSplitCheckbox.addEventListener('change', (e) => {
+        this.autoSplit = e.target.checked;
+        if (this.autoSplit) {
+            this.silenceDurationContainer.classList.remove('hidden');
+        } else {
+            this.silenceDurationContainer.classList.add('hidden');
+        }
+    });
+
+    this.silenceDurationInput.addEventListener('input', (e) => {
+        this.silenceDurationThreshold = parseFloat(e.target.value);
+        this.silenceValueLabel.textContent = this.silenceDurationThreshold.toFixed(1);
+    });
 
     // Set canvas resolution
     this.resizeCanvas();
@@ -118,10 +158,35 @@ class AudioRecorder {
 
     const bufferLength = this.analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
+    const dataArrayTime = new Uint8Array(this.analyser.fftSize);
 
     const draw = () => {
       this.animationId = requestAnimationFrame(draw);
       this.analyser.getByteFrequencyData(dataArray);
+
+      // Silence Detection
+      if (this.mediaRecorder && this.mediaRecorder.state === 'recording' && this.autoSplit) {
+        this.analyser.getByteTimeDomainData(dataArrayTime);
+        let maxVal = 0;
+        for (let i = 0; i < dataArrayTime.length; i++) {
+          const val = Math.abs(dataArrayTime[i] - 128) / 128;
+          if (val > maxVal) maxVal = val;
+        }
+
+        if (maxVal > this.silenceVolumeThreshold) {
+          this.currentTrackHasSound = true;
+          this.silenceStartTime = null;
+        } else {
+          if (this.silenceStartTime === null) {
+            this.silenceStartTime = Date.now();
+          } else if (Date.now() - this.silenceStartTime > this.silenceDurationThreshold * 1000) {
+            // Check if we already have sound in this track
+            // If we don't have sound and we hit the threshold, we just reset and keep going (discarding happened in onstop)
+            this.isAutoSplitInProgress = true;
+            this.stopRecording();
+          }
+        }
+      }
 
       const width = this.canvas.width;
       const height = this.canvas.height;
@@ -156,9 +221,9 @@ class AudioRecorder {
 
   startRecording() {
     this.recordedChunks = [];
+    this.currentTrackHasSound = false;
+    this.silenceStartTime = null;
     
-    // 音声トラックのみを抽出してレコーダーに渡す（映像はいらない場合）
-    // もし映像も録画したいなら this.stream をそのまま使う
     const audioStream = new MediaStream(this.stream.getAudioTracks());
     
     this.mediaRecorder = new MediaRecorder(audioStream, {
@@ -178,13 +243,32 @@ class AudioRecorder {
       let finalBlob = webmBlob;
       let extension = 'webm';
       
-      if (format === 'wav') {
-        this.statusIndicator.querySelector('.text').textContent = 'Encoding WAV...';
-        finalBlob = await this.convertToWav(webmBlob);
-        extension = 'wav';
+      // Handle Auto-split discard
+      if (this.isAutoSplitInProgress && !this.currentTrackHasSound) {
+        console.log("Discarding silent track");
+      } else {
+        if (format === 'wav') {
+          this.statusIndicator.querySelector('.text').textContent = 'Encoding WAV...';
+          finalBlob = await this.convertToWav(webmBlob);
+          extension = 'wav';
+        } else if (format === 'mp3') {
+          const bitrate = parseInt(this.mp3Bitrate.value);
+          this.statusIndicator.querySelector('.text').textContent = `Encoding MP3 (${bitrate}k)...`;
+          finalBlob = await this.convertToMp3(webmBlob, bitrate);
+          extension = 'mp3';
+        }
+        this.handleRecordingStop(finalBlob, extension);
       }
 
-      this.handleRecordingStop(finalBlob, extension);
+      if (this.isAutoSplitInProgress) {
+        this.isAutoSplitInProgress = false;
+        // Don't restart if capture ended
+        if (this.stream && this.stream.active) {
+            this.startRecording();
+        }
+      } else {
+        this.resetRecordingUI();
+      }
     };
 
     this.mediaRecorder.start();
@@ -194,6 +278,64 @@ class AudioRecorder {
     this.stopBtn.disabled = false;
     this.statusIndicator.classList.add('recording');
     this.statusIndicator.querySelector('.text').textContent = 'Recording';
+  }
+
+  async convertToMp3(blob, bitrate) {
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+      return this.audioBufferToMp3(audioBuffer, bitrate);
+    } catch (e) {
+      console.error('MP3 conversion failed:', e);
+      alert('MP3への変換に失敗しました。WebM形式で保存します。');
+      return blob;
+    }
+  }
+
+  audioBufferToMp3(buffer, bitrate) {
+    const channels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const mp3Encoder = new lamejs.Mp3Encoder(channels, sampleRate, bitrate);
+    const mp3Data = [];
+
+    const sampleBlockSize = 1152; // standard for MP3
+    
+    const left = buffer.getChannelData(0);
+    const right = channels > 1 ? buffer.getChannelData(1) : left;
+
+    // Convert float to 16bit PCM
+    const convert = (f32) => {
+        let s = Math.max(-1, Math.min(1, f32));
+        return s < 0 ? s * 0x8000 : s * 0x7FFF;
+    };
+
+    for (let i = 0; i < left.length; i += sampleBlockSize) {
+      const leftChunk = new Int16Array(sampleBlockSize);
+      const rightChunk = new Int16Array(sampleBlockSize);
+      for (let j = 0; j < sampleBlockSize; j++) {
+        if (i + j < left.length) {
+          leftChunk[j] = convert(left[i + j]);
+          rightChunk[j] = convert(right[i + j]);
+        }
+      }
+      
+      let mp3buf;
+      if (channels === 1) {
+        mp3buf = mp3Encoder.encodeBuffer(leftChunk);
+      } else {
+        mp3buf = mp3Encoder.encodeBuffer(leftChunk, rightChunk);
+      }
+      if (mp3buf.length > 0) {
+        mp3Data.push(mp3buf);
+      }
+    }
+
+    const mp3buf = mp3Encoder.flush();
+    if (mp3buf.length > 0) {
+      mp3Data.push(mp3buf);
+    }
+
+    return new Blob(mp3Data, { type: 'audio/mp3' });
   }
 
   async convertToWav(blob) {
@@ -277,14 +419,16 @@ class AudioRecorder {
   }
 
   handleRecordingStop(blob, extension) {
+    const url = URL.createObjectURL(blob);
+    this.addRecordingToList(url, blob.size, extension, blob);
+  }
+
+  resetRecordingUI() {
     this.recordBtn.classList.remove('record-active');
     this.recordBtn.innerHTML = '<span class="record-icon"></span> 録音開始';
     this.stopBtn.disabled = true;
     this.statusIndicator.classList.remove('recording');
     this.statusIndicator.querySelector('.text').textContent = 'Capturing...';
-
-    const url = URL.createObjectURL(blob);
-    this.addRecordingToList(url, blob.size, extension, blob);
   }
 
   async addRecordingToList(url, size, extension, blob) {
