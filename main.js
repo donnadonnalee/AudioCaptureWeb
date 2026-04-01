@@ -445,9 +445,14 @@ class AudioRecorder {
           <span class="name">録音データ (${extension.toUpperCase()}) ${timeStr}</span>
           <span class="date">${sizeStr}</span>
         </div>
-        <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
-          保存
-        </a>
+        <div class="action-buttons" style="display: flex; gap: 0.5rem;">
+          <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+            保存
+          </a>
+          <button class="btn danger discard-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: rgba(255, 71, 87, 0.1); color: var(--accent); border: 1px solid rgba(255, 71, 87, 0.3);">
+            破棄
+          </button>
+        </div>
       </div>
       <div class="waveform-wrapper">
         <canvas class="waveform-canvas"></canvas>
@@ -456,6 +461,18 @@ class AudioRecorder {
         <audio controls src="${url}"></audio>
       </div>
     `;
+
+    const discardBtn = item.querySelector('.discard-btn');
+    discardBtn.addEventListener('click', () => {
+        if (confirm('この録音データを破棄しますか？')) {
+            URL.revokeObjectURL(url);
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(20px)';
+            setTimeout(() => {
+                item.remove();
+            }, 300);
+        }
+    });
 
     this.recordingsList.prepend(item);
 

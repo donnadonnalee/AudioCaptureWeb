@@ -299,6 +299,16 @@ main {
   border: 1px solid var(--glass-border);
 }
 
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.discard-btn:hover {
+  background: rgba(255, 71, 87, 0.2) !important;
+  color: white !important;
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
