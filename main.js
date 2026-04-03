@@ -11,6 +11,7 @@ class AudioRecorder {
     this.audioCtx = null;
     this.analyser = null;
     this.animationId = null;
+    this.captureSourceName = '録音データ';
 
     // Elements
     this.startBtn = document.getElementById('startBtn');
@@ -123,6 +124,12 @@ class AudioRecorder {
       // 映像トラック（不要だがブラウザの仕様上必要）を取得して、停止時にストリームを止めるようにする
       const videoTrack = this.stream.getVideoTracks()[0];
       videoTrack.onended = () => this.handleStreamEnd();
+
+      // キャプチャ元の名前を保存（デフォルトのファイル名に使用）
+      // ブラウザによっては "Tab: Title" や "Window: Title" のような形式になる
+      const audioTrack = this.stream.getAudioTracks()[0];
+      this.captureSourceName = (videoTrack?.label || audioTrack?.label || '録音データ')
+        .replace(/^(共有中の(ウィンドウ|タブ|画面): |Screen Share: |Window: |Tab: )/, '');
 
       // 音声トラックがあるか確認
       const audioTracks = this.stream.getAudioTracks();
@@ -437,19 +444,32 @@ class AudioRecorder {
     
     const now = new Date();
     const timeStr = now.toLocaleTimeString();
+    const timestamp = now.getFullYear() +
+      (now.getMonth() + 1).toString().padStart(2, '0') +
+      now.getDate().toString().padStart(2, '0') + '_' +
+      now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0');
+
+    // デフォルトのファイル名（無効な文字を置換）
+    const sanitizedSource = this.captureSourceName.replace(/[\\/:*?"<>|]/g, '_');
+    const defaultName = `${sanitizedSource}_${timestamp}`;
     const sizeStr = (size / 1024 / 1024).toFixed(2) + ' MB';
 
     item.innerHTML = `
       <div class="recording-info-row">
         <div class="info">
-          <span class="name">録音データ (${extension.toUpperCase()}) ${timeStr}</span>
-          <span class="date">${sizeStr}</span>
+          <div class="filename-container">
+            <input type="text" class="filename-input" value="${defaultName}" spellcheck="false">
+            <span class="extension">.${extension}</span>
+          </div>
+          <span class="date">${sizeStr} (${timeStr})</span>
         </div>
-        <div class="action-buttons" style="display: flex; gap: 0.5rem;">
-          <a href="${url}" download="recording_${now.getTime()}.${extension}" class="btn secondary save-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+        <div class="action-buttons">
+          <a href="${url}" download="${defaultName}.${extension}" class="btn secondary save-btn">
             保存
           </a>
-          <button class="btn danger discard-btn" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: rgba(255, 71, 87, 0.1); color: var(--accent); border: 1px solid rgba(255, 71, 87, 0.3);">
+          <button class="btn danger discard-btn">
             破棄
           </button>
         </div>
@@ -462,7 +482,15 @@ class AudioRecorder {
       </div>
     `;
 
+    const filenameInput = item.querySelector('.filename-input');
     const saveBtn = item.querySelector('.save-btn');
+
+    // ファイル名入力の変更を監視してダウンロード属性を更新
+    filenameInput.addEventListener('input', (e) => {
+        const newName = e.target.value.replace(/[\\/:*?"<>|]/g, '_');
+        saveBtn.setAttribute('download', `${newName}.${extension}`);
+    });
+
     saveBtn.addEventListener('click', () => {
         saveBtn.classList.add('saved');
         saveBtn.textContent = '保存済み';
