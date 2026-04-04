@@ -36,6 +36,7 @@ class AudioRecorder {
     this.silenceStartTime = null;
     this.currentTrackHasSound = false;
     this.isAutoSplitInProgress = false;
+    this.isFlushing = false;
     this.silenceVolumeThreshold = 0.015; // Noise floor threshold
 
     this.init();
@@ -187,10 +188,16 @@ class AudioRecorder {
           if (this.silenceStartTime === null) {
             this.silenceStartTime = Date.now();
           } else if (Date.now() - this.silenceStartTime > this.silenceDurationThreshold * 1000) {
-            // Check if we already have sound in this track
-            // If we don't have sound and we hit the threshold, we just reset and keep going (discarding happened in onstop)
-            this.isAutoSplitInProgress = true;
-            this.stopRecording();
+            if (this.currentTrackHasSound) {
+              // Sound was recorded, so we need to SAVE this track and start a new one
+              this.isAutoSplitInProgress = true;
+              this.stopRecording();
+            } else {
+              // No sound has been recorded yet, so just "Flush" (discard and restart)
+              // to keep the leading silence short and avoid unnecessary encoding.
+              this.isFlushing = true;
+              this.stopRecording();
+            }
           }
         }
       }
@@ -244,37 +251,65 @@ class AudioRecorder {
     };
 
     this.mediaRecorder.onstop = async () => {
+      // 1. Capture CURRENT state and chunks before resetting for the next recording
+      const chunksToProcess = [...this.recordedChunks];
+      this.recordedChunks = [];
+      
+      const wasAutoSplit = this.isAutoSplitInProgress;
+      const wasFlushing = this.isFlushing;
+      const trackHasSound = this.currentTrackHasSound;
+      
+      // Reset status flags immediately
+      this.isAutoSplitInProgress = false;
+      this.isFlushing = false;
+
+      // 2. Restart IMMEDIATELY if we are splitting or flushing
+      if (wasAutoSplit || wasFlushing) {
+          if (this.stream && this.stream.active) {
+              this.startRecording();
+          }
+      } else {
+          this.resetRecordingUI();
+      }
+
+      // 3. Process the captured chunks in the background
+      // If it was just a "flush" (silent period reset), we don't need to process it
+      if (wasFlushing) {
+          console.log("Flush: Discarding leading silence");
+          return;
+      }
+
+      // If it was an auto-split but NO sound was detected (should be handled by wasFlushed, but just in case)
+      if (wasAutoSplit && !trackHasSound) {
+          console.log("Discarding silent track");
+          return;
+      }
+
+      // Start processing (Conversion)
       const format = Array.from(this.formatOptions).find(opt => opt.checked).value;
-      const webmBlob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+      const webmBlob = new Blob(chunksToProcess, { type: 'audio/webm' });
       
       let finalBlob = webmBlob;
       let extension = 'webm';
-      
-      // Handle Auto-split discard
-      if (this.isAutoSplitInProgress && !this.currentTrackHasSound) {
-        console.log("Discarding silent track");
-      } else {
-        if (format === 'wav') {
-          this.statusIndicator.querySelector('.text').textContent = 'Encoding WAV...';
-          finalBlob = await this.convertToWav(webmBlob);
-          extension = 'wav';
-        } else if (format === 'mp3') {
-          const bitrate = parseInt(this.mp3Bitrate.value);
-          this.statusIndicator.querySelector('.text').textContent = `Encoding MP3 (${bitrate}k)...`;
-          finalBlob = await this.convertToMp3(webmBlob, bitrate);
-          extension = 'mp3';
-        }
-        this.handleRecordingStop(finalBlob, extension);
-      }
 
-      if (this.isAutoSplitInProgress) {
-        this.isAutoSplitInProgress = false;
-        // Don't restart if capture ended
-        if (this.stream && this.stream.active) {
-            this.startRecording();
-        }
-      } else {
-        this.resetRecordingUI();
+      if (format === 'wav') {
+        this.statusIndicator.querySelector('.text').textContent = 'Encoding WAV...';
+        finalBlob = await this.convertToWav(webmBlob);
+        extension = 'wav';
+      } else if (format === 'mp3') {
+        const bitrate = parseInt(this.mp3Bitrate.value);
+        this.statusIndicator.querySelector('.text').textContent = `Encoding MP3 (${bitrate}k)...`;
+        finalBlob = await this.convertToMp3(webmBlob, bitrate);
+        extension = 'mp3';
+      }
+      
+      this.handleRecordingStop(finalBlob, extension);
+      
+      // Restore status indicator if still recording the next segment
+      if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+          this.statusIndicator.querySelector('.text').textContent = 'Recording';
+      } else if (this.stream && this.stream.active) {
+          this.statusIndicator.querySelector('.text').textContent = 'Capturing...';
       }
     };
 
