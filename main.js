@@ -18,6 +18,7 @@ class AudioRecorder {
     this.recordBtn = document.getElementById('recordBtn');
     this.stopBtn = document.getElementById('stopBtn');
     this.recordingControls = document.getElementById('recordingControls');
+    this.liveFilenameInput = document.getElementById('liveFilename');
     this.statusIndicator = document.getElementById('statusIndicator');
     this.recordingsList = document.getElementById('recordingsList');
     this.formatOptions = document.getElementsByName('format');
@@ -487,7 +488,11 @@ class AudioRecorder {
       now.getSeconds().toString().padStart(2, '0');
 
     // デフォルトのファイル名（無効な文字を置換）
-    const sanitizedSource = this.captureSourceName.replace(/[\\/:*?"<>|]/g, '_');
+    let baseName = this.captureSourceName;
+    if (this.liveFilenameInput && this.liveFilenameInput.value.trim() !== '') {
+        baseName = this.liveFilenameInput.value.trim();
+    }
+    const sanitizedSource = baseName.replace(/[\\/:*?"<>|]/g, '_');
     const defaultName = `${sanitizedSource}_${timestamp}`;
     const sizeStr = (size / 1024 / 1024).toFixed(2) + ' MB';
 

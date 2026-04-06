@@ -331,6 +331,27 @@ main {
 
 .recording-controls {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.live-filename-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.live-filename-container .filename-input {
+  max-width: 350px;
+  text-align: center;
+  font-weight: normal;
+  padding: 0.6rem 1rem;
+}
+
+.action-buttons-group {
+  display: flex;
   gap: 1rem;
 }
 

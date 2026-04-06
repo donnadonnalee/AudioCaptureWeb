@@ -80,13 +80,18 @@
                     録音するアプリやブラウザタブを選択
                 </button>
                 <div class="recording-controls hidden" id="recordingControls">
-                    <button id="recordBtn" class="btn danger">
-                        <span class="record-icon"></span>
-                        録音開始
-                    </button>
-                    <button id="stopBtn" class="btn secondary" disabled>
-                        停止
-                    </button>
+                    <div class="live-filename-container">
+                        <input type="text" id="liveFilename" class="filename-input" placeholder="保存するファイル名を入力... (任意)" spellcheck="false" title="録音データのデフォルトファイル名">
+                    </div>
+                    <div class="action-buttons-group">
+                        <button id="recordBtn" class="btn danger">
+                            <span class="record-icon"></span>
+                            録音開始
+                        </button>
+                        <button id="stopBtn" class="btn secondary" disabled>
+                            停止
+                        </button>
+                    </div>
                 </div>
             </div>
 
